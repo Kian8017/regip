@@ -1,0 +1,136 @@
+package search
+
+import (
+	"sort"
+)
+
+// Filter selective takes a list of possible trigrams and returns the top #numWanted
+func FilterSelective(database *db.DB, numWanted int, inputTris []string) []string {
+	if len(inputTris) < 1 {
+		return nil
+	}
+	// Intermediate, used for sorting
+	type tac struct { // tri and count
+		T string
+		C int
+	}
+	var trisAndCounts []tac
+	// Iterate through the tris, selecting the top #numWanted
+	for _, currentTri := range inputTris {
+		currentTotal, err := database.NumTrigram(currentTri)
+		if err != nil {
+			return nil
+		}
+		if len(trisAndCounts) < numWanted { // If we have room for all new entries...
+			trisAndCounts = append(trisAndCounts, tac{T: currentTri, C: currentTotal})
+		} else { // Already have a full final map
+			for tacInd, currentTac := range trisAndCounts {
+				if currentTotal < currentTac.C { // If our new entry is more selective than the last...
+					trisAndCounts[tacInd] = tac{T: currentTri, C: currentTotal}
+					break
+				}
+			}
+		}
+	}
+	// FIXME
+	// Sort into most selective
+	sort.Slice(trisAndCounts, func(i, j int) bool {
+		return trisAndCounts[i].C < trisAndCounts[j].C
+	})
+	results := make([]string, 0, len(trisAndCounts))
+	for _, currentTac := range trisAndCounts {
+		results = append(results, currentTac.T)
+	}
+
+	return results
+}
+package search
+
+import (
+)
+
+// IDToRecord takes an input IDFlow and returns a corresponding RecordFlow
+func IDToRecord(database *db.DB, input *flow.IDFlow) *flow.RecordFlow {
+	output := flow.NewRecordFlow()
+	go func() {
+		for {
+			inputID, ok := input.Get()
+			if !ok {
+				output.Stop()
+				return
+			}
+			currentRecord, err := database.GetRecord(inputID)
+			if err != nil {
+				output.Stop()
+				return
+			}
+			ok = output.Push(currentRecord)
+			if !ok {
+				input.Stop()
+				return
+			}
+		}
+	}()
+	return output
+
+}
+package search
+
+import (
+)
+
+// Intersect takes a set of IDFlows and returns one that has the IDs shared by all input IDFlows.
+// It assumes the that input flows are already sorted, with the most selective one first (for performance reasons).
+// TODO: figure out a way to reduce the copy-pasted error checking code... code smell
+func Intersect(a, b *flow.IDFlow) *flow.IDFlow {
+	output := flow.NewIDFlow()
+	go func() {
+		// Get initial values
+		curA, ok := a.Get()
+		if !ok {
+			output.Stop()
+			return
+		}
+
+		curB, ok := b.Get()
+		if !ok {
+			output.Stop()
+			return
+		}
+
+		for {
+			if curB.LessThan(curA) { // if curA is ahead, we need to get curB up
+				curB, ok = b.Get()
+				if !ok {
+					output.Stop()
+					return
+				}
+			} else if curA.LessThan(curB) { // buf if curB is ahead, then we need to advance curA
+				curA, ok = a.Get()
+				if !ok {
+					output.Stop()
+					return
+				}
+			} else { // They must be equal!
+				// Push the equal
+				ok := output.Push(curA)
+				if !ok {
+					return
+				}
+				// Reset to next iteration
+				curA, ok = a.Get()
+				if !ok {
+					output.Stop()
+					return
+				}
+
+				curB, ok = b.Get()
+				if !ok {
+					output.Stop()
+					return
+				}
+			}
+		}
+	}()
+	return output
+}

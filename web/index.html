@@ -1,0 +1,15 @@
+<h2>INDEX HTML</h2>
+<p>other stuff</p>
+<p>same stuff</p>
+<p>AND SOME MORE same stuff</p>
+<script>
+	var a = new WebSocket("ws://localhost:8089/ws")
+	a.onmessage = (ev) => { console.log(JSON.parse(ev.data)) }
+	s = JSON.stringify
+
+	function login(u, p) {
+		up = {user: u, password: p}
+		m = {id:12, type: "auth.login", payload: JSON.stringify(up)}
+		a.send(JSON.stringify(m))
+	}
+</script>

@@ -1,0 +1,15 @@
+When requesting a recordflow, make sure to check if it's nil!
+(search should just be: searchterm -> matchselective -> gettrigrams -> intersect -> idtorecord -> matchrecord -> return results)
+
+* MODULARIZE api commands
+  * To register a command you need:
+    * type -> cmd.ping
+    * function -> CmdPing
+    * privilege -> privs.any
+
+* Implement API		**DO THIS**
+* Implement session auth
+  * Implement priv mechanism (user.Can)
+
+* Add index package (don't forget IndexRecords)
+  * Adding indexing
